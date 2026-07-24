@@ -98,13 +98,22 @@ def train(args, cfg_dict: dict):
 
     num_workers = min(4, os.cpu_count() or 1)
     train_loader = DataLoader(train_ds, batch_size=cfg_dict["batch_size"], shuffle=True,
-                               drop_last=True, num_workers=num_workers, pin_memory=True)
+                               drop_last=True, num_workers=num_workers, pin_memory=True,
+                               persistent_workers=True, prefetch_factor=4)
     val_loader = DataLoader(val_ds, batch_size=min(cfg_dict["batch_size"], len(val_ds)),
-                             shuffle=False, num_workers=num_workers, pin_memory=True)
+                             shuffle=False, num_workers=num_workers, pin_memory=True,
+                             persistent_workers=True)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = PSANet(cfg).to(device)
     print(f"Model params: {model.param_count():,}  |  device: {device}  |  targets: {n_targets}")
+
+    # GPU optimizations
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.benchmark = True
+    if hasattr(torch, "compile"):
+        model = torch.compile(model, mode="reduce-overhead")
+        print("torch.compile enabled (reduce-overhead)")
 
     opt = torch.optim.AdamW(model.parameters(), lr=cfg_dict["lr"], weight_decay=cfg_dict["weight_decay"])
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=cfg_dict["epochs"], eta_min=cfg_dict["lr"] * 0.01)
