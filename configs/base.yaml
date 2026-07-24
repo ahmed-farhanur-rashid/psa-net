@@ -1,0 +1,45 @@
+# PSA-Net base configuration.
+# Override any field from the CLI, e.g.:
+#   python -m psanet.train --config configs/base.yaml --csv data.csv --features rps cpu --epochs 50
+
+# --- data shape ---
+# n_features is inferred from --features at runtime; not set here.
+input_window: 1440      # history length in timesteps (1440 = 24h @ 1-min resolution)
+forecast_horizon: 60    # steps to predict (60 = 1h @ 1-min resolution)
+steps_per_day: 1440     # 1440 for 1-min resolution, 288 for 5-min. MUST match your data.
+
+# --- patching ---
+patch_len: 60            # 1h @ 1-min resolution
+patch_stride: 30         # 30min @ 1-min resolution
+
+# --- model size ---
+d_model: 128
+n_heads: 4
+n_layers: 3
+d_ff: 256
+dropout: 0.1
+
+# --- spectral branch ---
+use_spectral_branch: true
+n_freq_bins: 32
+
+# --- seasonal embeddings ---
+use_seasonal_embed: true
+days_per_week: 7
+
+# --- spike pattern bank ---
+use_spike_bank: true
+n_spike_patterns: 16
+spike_bank_heads: 4
+
+# --- uncertainty ---
+n_quantiles: 3
+quantiles: [0.1, 0.5, 0.9]
+
+# --- training ---
+batch_size: 64
+lr: 0.0003
+epochs: 30
+val_fraction: 0.15
+weight_decay: 0.01
+grad_clip: 1.0
