@@ -46,6 +46,9 @@ import torch.nn.functional as F
 class PSANetConfig:
     # --- data shape (dataset-agnostic; set per dataset) ---
     n_features: int = 6          # number of input signals (works for 3, 6, 8, 20, ...)
+    n_targets: int = 6           # number of features actually forecast (<=n_features; the rest
+                                  # are input-only context, e.g. cluster id, pod_count). Target
+                                  # columns must be the FIRST n_targets entries of feature_cols.
     input_window: int = 1440     # history length in timesteps (e.g. 1440 = 24h @ 1min, 288 = 24h @ 5min)
     forecast_horizon: int = 60   # steps to predict (e.g. 60 = 1h @ 1min, 12 = 1h @ 5min)
 
@@ -229,8 +232,11 @@ class PSANet(nn.Module):
 
         n_patches = self.patch_embed.n_patches
         flat_dim = cfg.n_features * n_patches * cfg.d_model
+        # head only outputs quantiles for the target features (first n_targets columns),
+        # not the full n_features — context-only columns (cluster id, pod_count, ...)
+        # are used to build tokens above but never forecast.
         self.head = nn.Linear(
-            flat_dim, cfg.forecast_horizon * cfg.n_features * cfg.n_quantiles
+            flat_dim, cfg.forecast_horizon * cfg.n_targets * cfg.n_quantiles
         )
 
     def forward(self, x: torch.Tensor, tod_idx: torch.Tensor = None,
@@ -252,7 +258,7 @@ class PSANet(nn.Module):
 
         B = tokens.shape[0]
         out = self.head(tokens.reshape(B, -1))
-        out = out.reshape(B, cfg.forecast_horizon, cfg.n_features, cfg.n_quantiles)
+        out = out.reshape(B, cfg.forecast_horizon, cfg.n_targets, cfg.n_quantiles)
         return out
 
     def param_count(self) -> int:

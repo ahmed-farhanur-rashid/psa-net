@@ -34,7 +34,11 @@ def build_arg_parser(defaults: dict) -> argparse.ArgumentParser:
     p = argparse.ArgumentParser()
     p.add_argument("--config", type=str, default="configs/base.yaml")
     p.add_argument("--csv", type=str, required=True)
-    p.add_argument("--features", nargs="+", required=True)
+    p.add_argument("--features", nargs="+", required=True,
+                    help="Target columns first, then any context-only columns (see --context_features).")
+    p.add_argument("--context_features", nargs="+", default=[],
+                    help="Feature columns used as model input but NOT forecast (e.g. cluster id, pod_count). "
+                         "Appended after --features; excluded from the loss/output.")
     p.add_argument("--out", type=str, default="models/psanet_checkpoint.pt")
 
     # every config field is CLI-overridable; type inferred from the YAML default
@@ -52,10 +56,12 @@ def train(args, cfg_dict: dict):
     import pandas as pd
 
     df = pd.read_csv(args.csv)
-    feature_cols = args.features
+    n_targets = len(args.features)
+    feature_cols = args.features + args.context_features  # targets first, then context-only cols
 
     cfg = PSANetConfig(
         n_features=len(feature_cols),
+        n_targets=n_targets,
         input_window=cfg_dict["input_window"],
         forecast_horizon=cfg_dict["forecast_horizon"],
         steps_per_day=cfg_dict["steps_per_day"],

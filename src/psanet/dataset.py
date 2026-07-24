@@ -49,7 +49,9 @@ class TelemetryDataset(Dataset):
     def __getitem__(self, idx):
         cfg = self.cfg
         hist = self.values[idx: idx + cfg.input_window]
-        target = self.values[idx + cfg.input_window: idx + cfg.input_window + cfg.forecast_horizon]
+        # target only covers the first n_targets columns (feature_cols must be ordered
+        # target columns first, then context-only columns like cluster id / pod_count)
+        target = self.values[idx + cfg.input_window: idx + cfg.input_window + cfg.forecast_horizon, :cfg.n_targets]
 
         # tod/dow index at the START of each patch within the history window
         patch_starts = np.arange(0, self.n_patches) * cfg.patch_stride
