@@ -15,4 +15,14 @@ def quantile_loss(preds: torch.Tensor, target: torch.Tensor, quantiles: list) ->
     for i, q in enumerate(quantiles):
         err = target[..., 0] - preds[..., i]
         losses.append(torch.max((q - 1) * err, q * err))
-    return torch.stack(losses, dim=-1).mean()
+    pinball = torch.stack(losses, dim=-1).mean()
+
+    # Quantile spread penalty: prevent collapse when n_quantiles >= 3
+    if len(quantiles) >= 3:
+        spread_penalty = 0.0
+        for i in range(len(quantiles) - 1):
+            gap = (preds[..., i + 1] - preds[..., i]).clamp(min=0)
+            spread_penalty += torch.relu(0.05 - gap).mean()
+        return pinball + 0.1 * spread_penalty
+
+    return pinball
